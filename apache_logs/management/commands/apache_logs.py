@@ -38,30 +38,38 @@ class Command(BaseCommand):
     def processing():
         """сохранение логов в бд"""
         with open(Command.path, 'rt') as f:
-            reg = r'(\S+) (\S+) (\S+) \[((?:[^:]+):(?:\d+:\d+:\d+)) ([^\]]+)\] \"(\S+) (.*?) (\S+)\"' \
-                  r' (\S+) (\S+) \"(.*?)\" \"(.*?)\" \"(.*?)\"'
+            r"""
+            регулярное выражение задает следующий шаблон            
+            (ip) (?:) (?:) [(дата и время) (часовой пояс)] "(HTTP method) \(?:) (?:)\" 
+            (статус ответа) (размер ответа) "(источник)" (?:) "(?:)"
+            ?: - игнорируемая группа
+            доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
+            """
+            reg = r'(\S+) (?:\S+) (?:\S+) \[((?:[^:]+):(?:\d+:\d+:\d+)) ([^\]]+)\] \"(\S+) (?:.*?) (?:\S+)\"' \
+                  r' (\S+) (\S+) \"(.*?)\" \"(?:.*?)\" \"(?:.*?)\"'
             obj_list = []
             for log in tqdm(f.readlines(), unit_scale=True, desc="Processing data"):
-                m = re.search(reg, log) #получили match-объект с интересующими группами
+                match = re.search(reg, log) #получили match-объект с интересующими группами
 
-                if m is None:
+                if match is None:
                     continue
 
-                date_time = datetime.strptime(m[4], "%d/%b/%Y:%H:%M:%S")
-                tz = int(m[5][:3])
-
-                if m[11] == '-':
-                    referer = None
-                else:
-                    referer = m[11]
-
-                if m[10] == '-':
+                ip = match[1]
+                date_time = datetime.strptime(match[2], "%d/%b/%Y:%H:%M:%S")
+                tz = int(match[3][:3])
+                method = match[4]
+                status = match[5]
+                if match[6] == '-':
                     resp_size = None
                 else:
-                    resp_size = int(m[10])
+                    resp_size = int(match[6])
+                if match[7] == '-':
+                    referer = None
+                else:
+                    referer = match[7]
 
-                obj_list.append(ApacheLog(ip=m[1], date=date_time, tz=tz, method=m[6],
-                                          referer=referer, status=m[9], resp_size=resp_size))
+                obj_list.append(ApacheLog(ip=ip, date=date_time, tz=tz, method=method,
+                                          referer=referer, status=status, resp_size=resp_size))
                 if len(obj_list) == 999: #sqlite позволяет сохранить максимум 999 объктов за раз
                     with warnings.catch_warnings(): #игнорируем предупреждения о таймзонах
                         warnings.simplefilter("ignore")
