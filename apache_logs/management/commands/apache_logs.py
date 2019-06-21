@@ -28,11 +28,11 @@ class Command(BaseCommand):
                     wrote = wrote + len(data)
                     f.write(data)
             if total_size != 0 and wrote != total_size:
-                return 1
-            return 0
+                return 0
+            return 1
         except Exception as e:
             print(e)
-            return 1
+            return 0
 
     @staticmethod
     def processing():
@@ -75,7 +75,7 @@ class Command(BaseCommand):
         os.remove(Command.path)
 
     def handle(self, *args, **options):
-        if not Command.get_data(options['url']):
+        if Command.get_data(options['url']):
             Command.processing()
 
     def add_arguments(self, parser):
