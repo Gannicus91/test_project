@@ -39,30 +39,28 @@ class ApacheLogListView(generic.ListView):
         QUERY = self.queryset
         return self.queryset
 
-    def get_context_data(self, **kwargs):
+        def get_context_data(self, **kwargs):
         context = super(ApacheLogListView, self).get_context_data(**kwargs)
         logs = self.queryset
         resp_size_list = [] #массив всех размеров ответа
+
         ip_set = set() #множество всех ip
-        ip_set_size = 0 #размер множества
-        ip_count_d = dict() #словарь типа {ip: кол-во, ...}
-        """для http методов аналогично"""
-        method_set = set()
-        method_set_size = 0
-        method_count_d = dict()
+        ip_count_d = dict() #словарь {ip: число запросов }
+        method_count_d = dict() #словарь {method: число запросов }
 
         for log in logs:
             if log.resp_size is not None:
-                resp_size_list.append(log.resp_size)
-            ip_set_size = ApacheLogListView.update_set(ip_set, ip_count_d, ip_set_size, log.ip)
-            method_set_size = ApacheLogListView.update_set(method_set, method_count_d, method_set_size, log.method)
+                resp_size_list.append(log.resp_size) #если размер передан сохраняем его в список
+            ip_set.add(log.ip)
+            ApacheLogListView.add_or_update(ip_count_d, log.ip)
+            ApacheLogListView.add_or_update(method_count_d, log.method)
 
         resp_sum = sum(resp_size_list)
 
         ip_list = list(ip_count_d.items()) #получили список кортежей
         ip_list.sort(key=lambda l: l[1], reverse=True) #отсортировали по значению
         top_ips = dict()
-        dp = 10 if len(ip_list) >= 10 else len(ip_list)
+        dp = 10 if len(ip_set) >= 10 else len(ip_set)
         for i, j in zip(ip_list, range(dp)): #сохранили первые 10 или меньше значений
             top_ips[i[0]] = i[1]
         q = self.request.GET.dict().get('q', '')
@@ -70,19 +68,17 @@ class ApacheLogListView(generic.ListView):
         context['top'] = top_ips
         context['ip_set_count'] = len(ip_set)
         context['resp_sum'] = resp_sum
-        context['q'] = q #передаем в шаблон запрос поиска, чтобы при пагинации учитывался поиск
+        context['q'] = q #передаем в шаблон запрос поиска, чтобы пагинация учитывала поиск
         return context
 
     @staticmethod
-    def update_set(o_set, o_dict, o_set_size, key):
-        """функция облегчает построение словаря типа {объект: кол-во объектов в списке, ...}"""
-        o_set.add(key)
-        if o_set_size < len(o_set):
-            o_set_size += 1
+    def add_or_update(o_dict, key):
+        """если в словаре нет переданного ключа, то он добавляется со значением 1, 
+        иначе увеличиваем значение по ключу на 1"""
+        if o_dict.get(key, None) is None:
             o_dict[key] = 1
         else:
             o_dict[key] += 1
-        return o_set_size
 
 
 def download(request):
