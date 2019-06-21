@@ -39,14 +39,14 @@ class ApacheLogListView(generic.ListView):
         QUERY = self.queryset
         return self.queryset
 
-        def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs):
         context = super(ApacheLogListView, self).get_context_data(**kwargs)
         logs = self.queryset
         resp_size_list = [] #массив всех размеров ответа
 
-        ip_set = set() #множество всех ip
-        ip_count_d = dict() #словарь {ip: число запросов }
-        method_count_d = dict() #словарь {method: число запросов }
+        ip_set = set()
+        ip_count_d = dict() #словарь {ip: число запросов, ... }
+        method_count_d = dict() #словарь {method: число запросов, ... }
 
         for log in logs:
             if log.resp_size is not None:
@@ -57,23 +57,23 @@ class ApacheLogListView(generic.ListView):
 
         resp_sum = sum(resp_size_list)
 
-        ip_list = list(ip_count_d.items()) #получили список кортежей
+        """считаем топ10 ip"""
+        ip_list = list(ip_count_d.items()) #получили список кортежей (ip, число запросов)
         ip_list.sort(key=lambda l: l[1], reverse=True) #отсортировали по значению
         top_ips = dict()
-        dp = 10 if len(ip_set) >= 10 else len(ip_set)
-        for i, j in zip(ip_list, range(dp)): #сохранили первые 10 или меньше значений
+        for i, j in zip(ip_list, range(10)): #сохранили первые 10 или меньше значений
             top_ips[i[0]] = i[1]
-        q = self.request.GET.dict().get('q', '')
+
         context['methods'] = method_count_d
         context['top'] = top_ips
         context['ip_set_count'] = len(ip_set)
         context['resp_sum'] = resp_sum
-        context['q'] = q #передаем в шаблон запрос поиска, чтобы пагинация учитывала поиск
+        context['q'] = self.request.GET.dict().get('q', '') #передаем в шаблон запрос поиска, чтобы пагинация учитывала поиск
         return context
 
     @staticmethod
     def add_or_update(o_dict, key):
-        """если в словаре нет переданного ключа, то он добавляется со значением 1, 
+        """если в словаре нет переданного ключа, то он добавляется со значением 1,
         иначе увеличиваем значение по ключу на 1"""
         if o_dict.get(key, None) is None:
             o_dict[key] = 1
