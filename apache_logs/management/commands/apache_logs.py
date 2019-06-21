@@ -20,13 +20,12 @@ class Command(BaseCommand):
             response = requests.get(url, stream=True)
             total_size = int(response.headers.get('content-length', 0))
             block_size = 1048576
-            wrote = 0
-            with open(Command.path, 'wb') as f:
+            with open(Command.path, 'wb') as file:
                 for data in tqdm(response.iter_content(chunk_size=block_size),
                                  total=math.ceil(total_size // block_size),
                                  unit='KB', unit_scale=True, desc="Downloading data"):
-                    wrote = wrote + len(data)
-                    f.write(data)
+                    file.write(data)
+            wrote = file.tell()
             if total_size != 0 and wrote != total_size:
                 return 0
             return 1
