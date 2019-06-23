@@ -2,10 +2,8 @@ from django.shortcuts import render
 from django.views import generic
 from .models import ApacheLog
 from django.db.models import Q
-from django.shortcuts import HttpResponse
+from django.shortcuts import HttpResponse, HttpResponseRedirect
 import openpyxl
-
-QUERY = ApacheLog.objects.all()
 
 
 def redirect_view(request):
@@ -19,10 +17,9 @@ class LogsView(generic.TemplateView):
 class ApacheLogListView(generic.ListView):
     model = ApacheLog
     paginate_by = 50
-    queryset = QUERY
+    queryset = ApacheLog.objects.all()
 
     def get_queryset(self):
-        global QUERY
         qs = super().get_queryset()
         query = self.request.GET.get('q', '')
         if query is not '':
@@ -36,8 +33,12 @@ class ApacheLogListView(generic.ListView):
                                 Q(resp_size__icontains=query)
                                 )
             self.queryset = founded
-        QUERY = self.queryset
         return self.queryset
+
+    def get(self, request, **kwargs):
+        if request.GET.get('download', False):
+            return download(request, self.get_queryset())
+        return super().get(request, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super(ApacheLogListView, self).get_context_data(**kwargs)
@@ -45,8 +46,8 @@ class ApacheLogListView(generic.ListView):
         resp_size_list = [] #массив всех размеров ответа
 
         ip_set = set()
-        ip_count_d = dict() #словарь {ip: число запросов, ... }
-        method_count_d = dict() #словарь {method: число запросов, ... }
+        ip_count_d = dict() #словарь {ip: число запросов }
+        method_count_d = dict() #словарь {method: число запросов }
 
         for log in logs:
             if log.resp_size is not None:
@@ -81,7 +82,7 @@ class ApacheLogListView(generic.ListView):
             o_dict[key] += 1
 
 
-def download(request):
+def download(request, queryset):
     response = HttpResponse(content_type='application/ms-excel')
     response['Content-Disposition'] = 'attachment; filename="data.xlsx"'
 
@@ -93,7 +94,7 @@ def download(request):
 
     ws.append(columns)
 
-    rows = QUERY.values_list('pk', 'ip', 'date', 'tz', 'method', 'referer', 'status', 'resp_size')
+    rows = queryset.values_list('pk', 'ip', 'date', 'tz', 'method', 'referer', 'status', 'resp_size')
 
     for row in rows:
         ws.append(row)

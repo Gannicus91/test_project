@@ -10,9 +10,10 @@
                 <button class="btn" type="submit">Find</button>
             </div>
         </form>
-        <form style="float: left;" action="{% url 'export_users_xls' %}" method="GET">
+        <form style="float: left;" action="{% url 'apachelog-list' %}" method="GET">
             <div class="form-group form-inline">
-                <button class="btn btn-primary" type="submit">Download XLSX</button>
+                <input type="hidden" name="q" value="{{ q }}">
+                <button class="btn btn-primary" value="1" name="download" type="submit">Download XLSX</button>
             </div>
         </form>
         <div class="main-data">

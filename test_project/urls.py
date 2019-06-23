@@ -22,5 +22,4 @@ urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^logs/$', LogsView.as_view(), name='logs'),
     url(r'^list/$', ApacheLogListView.as_view(), name='apachelog-list'),
-    url(r'^export/xls/$', download, name='export_users_xls'),
 ]
