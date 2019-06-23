@@ -25,7 +25,7 @@ class Command(BaseCommand):
                                  total=math.ceil(total_size // block_size),
                                  unit='KB', unit_scale=True, desc="Downloading data"):
                     file.write(data)
-            wrote = file.tell()
+                wrote = file.tell()
             if total_size != 0 and wrote != total_size:
                 return 0
             return 1
