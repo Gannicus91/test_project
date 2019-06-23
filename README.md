@@ -1,7 +1,8 @@
 # test_project
 Проект реализует парсинг логов apache сервера, их обработку и хранение.
 ***
-## Загрузка проекта
+## Развертка, настройка и запуск проекта
+### Загрузка проекта
 Сначала необходимо клонировать репозиторий на локальную машину:
 ```bash
 git clone git@github.com:Gannicus91/test_project.git
@@ -17,8 +18,8 @@ venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
-***
-## Настройка базы данных
+
+### Настройка базы данных
 В `settings.py` укажите используемую СУБД. По умолчанию - `sqlite`:
 ```python
 DATABASES = {
@@ -30,8 +31,7 @@ DATABASES = {
 ```
 
 Выполните миграции с помощью команд: `python manage.py makemigrations` `python manage.py migrate`
-***
-## Запуск проекта на локальной машине
+### Запуск проекта на локальной машине
 
 Выполните `python manage.py runserver`. В консоли появится сообщение
 ```bash
@@ -46,3 +46,8 @@ Quit the server with CTRL-BREAK.
 ```bash
 python manage.py apache_logs http://www.almhuette-raith.at/apache-log/access.log
 ```
+***
+## Документация
+### Model ApacheLog
+### Management command apache_logs
+### ApacheLogListView
