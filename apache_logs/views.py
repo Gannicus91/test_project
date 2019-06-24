@@ -1,9 +1,9 @@
 from django.shortcuts import render
 from django.views import generic
 from .models import ApacheLog
-from django.db.models import Q
 from django.shortcuts import HttpResponse, HttpResponseRedirect
 import openpyxl
+from django.db.models import *
 
 
 def redirect_view(request):
@@ -43,43 +43,19 @@ class ApacheLogListView(generic.ListView):
     def get_context_data(self, **kwargs):
         context = super(ApacheLogListView, self).get_context_data(**kwargs)
         logs = self.queryset
-        resp_size_list = [] #массив всех размеров ответа
 
-        ip_set = set()
-        ip_count_d = dict() #словарь {ip: число запросов }
-        method_count_d = dict() #словарь {method: число запросов }
+        resp_sum = logs.aggregate(Sum('resp_size'))['resp_size__sum']
+        methods_count = logs.values_list('method').annotate(
+            methods_count=Count('method')).distinct().order_by('-methods_count')
+        unique_ips = logs.values_list('ip').annotate(ip_count=Count('ip')).distinct().order_by('-ip_count')
+        top_ips = unique_ips[:10]
 
-        for log in logs:
-            if log.resp_size is not None:
-                resp_size_list.append(log.resp_size) #если размер передан сохраняем его в список
-            ip_set.add(log.ip)
-            ApacheLogListView.add_or_update(ip_count_d, log.ip)
-            ApacheLogListView.add_or_update(method_count_d, log.method)
-
-        resp_sum = sum(resp_size_list)
-
-        """считаем топ10 ip"""
-        ip_list = list(ip_count_d.items()) #получили список кортежей (ip, число запросов)
-        ip_list.sort(key=lambda l: l[1], reverse=True) #отсортировали по значению
-        top_ips = dict()
-        for i, j in zip(ip_list, range(10)): #сохранили первые 10 или меньше значений
-            top_ips[i[0]] = i[1]
-
-        context['methods'] = method_count_d
+        context['methods'] = methods_count
         context['top'] = top_ips
-        context['ip_set_count'] = len(ip_set)
+        context['ip_set_count'] = len(unique_ips)
         context['resp_sum'] = resp_sum
         context['q'] = self.request.GET.dict().get('q', '') #передаем в шаблон запрос поиска, чтобы пагинация учитывала поиск
         return context
-
-    @staticmethod
-    def add_or_update(o_dict, key):
-        """если в словаре нет переданного ключа, то он добавляется со значением 1,
-        иначе увеличиваем значение по ключу на 1"""
-        if o_dict.get(key, None) is None:
-            o_dict[key] = 1
-        else:
-            o_dict[key] += 1
 
 
 def download(request, queryset):
