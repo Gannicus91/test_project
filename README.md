@@ -42,6 +42,14 @@ Starting development server at http://127.0.0.1:8000/
 Quit the server with CTRL-BREAK.
 ```
 
+###Docker
+Вы можете запустить проект с настройками по умолчанию, выполнив команды:
+```bash
+docker-compose run web python manage.py makemigrations
+docker-compose run web python manage.py migrate
+docker-compose up
+```
+
 Используйте команду `python manage.py apache_logs <url>` чтобы собрать логи:
 ```bash
 python manage.py apache_logs http://www.almhuette-raith.at/apache-log/access.log
