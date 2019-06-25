@@ -37,7 +37,7 @@ class ApacheLogListView(generic.ListView):
 
     def get(self, request, **kwargs):
         if request.GET.get('download', False):
-            return download(request, self.get_queryset())
+            return ApacheLogListView.download(request, self.get_queryset())
         return super().get(request, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -57,25 +57,25 @@ class ApacheLogListView(generic.ListView):
         context['q'] = self.request.GET.dict().get('q', '') #передаем в шаблон запрос поиска, чтобы пагинация учитывала поиск
         return context
 
+    @staticmethod
+    def download(request, queryset):
+        response = HttpResponse(content_type='application/ms-excel')
+        response['Content-Disposition'] = 'attachment; filename="data.xlsx"'
 
-def download(request, queryset):
-    response = HttpResponse(content_type='application/ms-excel')
-    response['Content-Disposition'] = 'attachment; filename="data.xlsx"'
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'ApacheLogs'
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'ApacheLogs'
+        columns = ['pk', 'IP', 'Date', 'Time zone' 'Method', 'Referer', 'Status', 'Response size', ]
 
-    columns = ['pk', 'IP', 'Date', 'Time zone' 'Method', 'Referer', 'Status', 'Response size', ]
+        ws.append(columns)
 
-    ws.append(columns)
+        rows = queryset.values_list('pk', 'ip', 'date', 'tz', 'method', 'referer', 'status', 'resp_size')
 
-    rows = queryset.values_list('pk', 'ip', 'date', 'tz', 'method', 'referer', 'status', 'resp_size')
+        for row in rows:
+            ws.append(row)
 
-    for row in rows:
-        ws.append(row)
-
-    wb.save(response)
-    return response
+        wb.save(response)
+        return response
 
 
