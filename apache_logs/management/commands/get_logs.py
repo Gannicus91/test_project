@@ -49,7 +49,7 @@ class Command(BaseCommand):
                             print(log)
                             continue
 
-                        obj_list.append(Command.get_log_object(match))
+                        obj_list.append(Command.get_log_object_from_match(match))
                         if len(obj_list) == 999:  # sqlite позволяет сохранить максимум 999 объктов за раз
                             Command.save_data(obj_list)
                             obj_list = []
@@ -65,7 +65,7 @@ class Command(BaseCommand):
             return 0
 
     @staticmethod
-    def get_log_object(match):
+    def get_log_object_from_match(match):
         ip = match[1]
         date_time = datetime.strptime(match[2], "%d/%b/%Y:%H:%M:%S")
         tz = int(match[3][:3])
