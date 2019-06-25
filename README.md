@@ -49,10 +49,10 @@ docker-compose run web python manage.py makemigrations
 docker-compose run web python manage.py migrate
 docker-compose up
 ```
-
-Используйте команду `python manage.py apache_logs <url>` чтобы собрать логи:
+### Сбор логов
+Используйте команду `python manage.py get_logs <url>` чтобы собрать логи:
 ```bash
-python manage.py apache_logs http://www.almhuette-raith.at/apache-log/access.log
+python manage.py get_logs http://www.almhuette-raith.at/apache-log/access.log
 ```
 ***
 ## Документация
