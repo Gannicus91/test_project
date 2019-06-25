@@ -49,5 +49,31 @@ python manage.py apache_logs http://www.almhuette-raith.at/apache-log/access.log
 ***
 ## Документация
 ### Model ApacheLog
-### Management command apache_logs
+Модель ApacheLog содержит основную информацию о логе: <br>
+ip - Адрес IPv4 или IPv6 в виде строки<br>
+date - дата и время запроса<br>
+tz - целое число, часовой пояс<br>
+method - HTTP-метод из заголовка запроса<br>
+referer - URL источника запросам<br>
+status - статусный код ответа<br>
+resp_size - размер ответа в байтах<br>
+### Management command get_logs
+Команде get_logs на вход дается URL, по которому собираются логи
+Класс Command содержит следующие методы
+#### create_file
+Параметры: path - путь к файлу;<br>
+Создает временный файл, в который записываются логи.
+#### remove_file
+Параметры: path - путь к файлу;<br>
+Удаляет временный файл.
+#### save_data
+Параметры: obj_list - список, содержащий объекты модели ApacheLog;<br>
+Сохраняет данные в бд.
+#### get_log_object_from_match
+Параметры: match - macth-объект, группы которого будут полями объекта;<br>
+Создает объект модели ApacheLog из macth-объекта
+#### get_data
+Параметры: url - ссылка на ресурс с логами;<br>
+Получет и обрабатывает данные содержащиеся в url
 ### ApacheLogListView
+Наследуется от generic.ListView. Реализует поиск, обработку и представление данных о логах. Также через статический метод download осуществляет экспорт в xlsl.
