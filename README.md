@@ -42,7 +42,7 @@ Starting development server at http://127.0.0.1:8000/
 Quit the server with CTRL-BREAK.
 ```
 
-###Docker
+### Docker
 Вы можете запустить проект с настройками по умолчанию, выполнив команды:
 ```bash
 docker-compose run web python manage.py makemigrations
