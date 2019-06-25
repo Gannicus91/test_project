@@ -46,7 +46,6 @@ class Command(BaseCommand):
                         match = re.search(reg, log.decode('utf-8'))  # получили match-объект с интересующими группами
 
                         if match is None:
-                            print(log)
                             continue
 
                         obj_list.append(Command.get_log_object_from_match(match))
