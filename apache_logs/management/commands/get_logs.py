@@ -15,28 +15,11 @@ class Command(BaseCommand):
 
     @staticmethod
     def get_data(url):
-        """получить данные по URL и сохранить в файл"""
+        """загрузка и обработка данных"""
         try:
             response = requests.get(url, stream=True)
             total_size = int(response.headers.get('content-length', 0))
-            block_size = 1048576
-            with open(Command.path, 'wb') as file:
-                for data in tqdm(response.iter_content(chunk_size=block_size),
-                                 total=math.ceil(total_size // block_size),
-                                 unit='KB', unit_scale=True, desc="Downloading data"):
-                    file.write(data)
-                wrote = file.tell()
-            if total_size != 0 and wrote != total_size:
-                return 0
-            return 1
-        except Exception as e:
-            print(e)
-            return 0
-
-    @staticmethod
-    def processing():
-        """сохранение логов в бд"""
-        with open(Command.path, 'rt') as f:
+            block_size = 1048576 # считываем по 1мб
             r"""
             регулярное выражение задает следующий шаблон            
             (ip) (?:) (?:) [(дата и время) (часовой пояс)] "(HTTP method) \(?:) (?:)\" 
@@ -47,43 +30,62 @@ class Command(BaseCommand):
             reg = r'(\S+) (?:\S+) (?:\S+) \[((?:[^:]+):(?:\d+:\d+:\d+)) ([^\]]+)\] \"(\S+) (?:.*?) (?:\S+)\"' \
                   r' (\S+) (\S+) \"(.*?)\" \"(?:.*?)\" \"(?:.*?)\"'
             obj_list = []
-            for log in tqdm(f.readlines(), unit_scale=True, desc="Processing data"):
-                match = re.search(reg, log) #получили match-объект с интересующими группами
+            cut = b''
+            with open(Command.path, 'r+b') as file:
+                for data in tqdm(response.iter_content(chunk_size=block_size),
+                                 total=math.ceil(total_size // block_size),
+                                 unit='KB', unit_scale=True, desc="Downloading & processing the data"):
+                    file.write(data)
+                    file.seek(-len(data), 1) # перемещаем указатель внутри файла назад и обрабатываем считанные данные
+                    for log in file.readlines():
+                        if log[-1] != 10: # если последний символ строки не равен \n значит строка считана не полностью
+                            cut = log # запомнили обрезанную часть строки
+                            break
+                        cut += log # присоединили к обрезанной строке оставшийся кусок (или просто считанную строку)
+                        log = cut
+                        match = re.search(reg, log.decode('utf-8'))  # получили match-объект с интересующими группами
 
-                if match is None:
-                    continue
+                        if match is None:
+                            print(log)
+                            continue
 
-                ip = match[1]
-                date_time = datetime.strptime(match[2], "%d/%b/%Y:%H:%M:%S")
-                tz = int(match[3][:3])
-                method = match[4]
-                status = match[5]
-                if match[6] == '-':
-                    resp_size = None
-                else:
-                    resp_size = int(match[6])
-                if match[7] == '-':
-                    referer = None
-                else:
-                    referer = match[7]
+                        obj_list.append(Command.get_log_object(match))
+                        if len(obj_list) == 999:  # sqlite позволяет сохранить максимум 999 объктов за раз
+                            Command.save_data(obj_list)
+                            obj_list = []
+                        cut = b''
 
-                obj_list.append(ApacheLog(ip=ip, date=date_time, tz=tz, method=method,
-                                          referer=referer, status=status, resp_size=resp_size))
-                if len(obj_list) == 999: #sqlite позволяет сохранить максимум 999 объктов за раз
-                    with warnings.catch_warnings(): #игнорируем предупреждения о таймзонах
-                        warnings.simplefilter("ignore")
-                        ApacheLog.objects.bulk_create(obj_list)
-                    obj_list = []
+                Command.save_data(obj_list)
+                wrote = file.tell()
+            if total_size != 0 and wrote != total_size:
+                return 0
+            return 1
+        except Exception as e:
+            print(e)
+            return 0
 
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                ApacheLog.objects.bulk_create(obj_list)
-
-        os.remove(Command.path)
+    @staticmethod
+    def get_log_object(match):
+        ip = match[1]
+        date_time = datetime.strptime(match[2], "%d/%b/%Y:%H:%M:%S")
+        tz = int(match[3][:3])
+        method = match[4]
+        status = match[5]
+        if match[6] == '-':
+            resp_size = None
+        else:
+            resp_size = int(match[6])
+        if match[7] == '-':
+            referer = None
+        else:
+            referer = match[7]
+        return ApacheLog(ip=ip, date=date_time, tz=tz, method=method,
+                         referer=referer, status=status, resp_size=resp_size)
 
     def handle(self, *args, **options):
-        if Command.get_data(options['url']):
-            Command.processing()
+        Command.create_file(Command.path)
+        Command.get_data(options['url'])
+        Command.remove_file(Command.path)
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -93,3 +95,19 @@ class Command(BaseCommand):
             default=False,
             help='ссылка на файл с логами apache'
         )
+
+    @staticmethod
+    def save_data(obj_list):
+        with warnings.catch_warnings():  # игнорируем предупреждения о таймзонах
+            warnings.simplefilter("ignore")
+            ApacheLog.objects.bulk_create(obj_list)
+
+    @staticmethod
+    def create_file(path):
+        f = open(path, 'w')
+        f.close()
+
+    @staticmethod
+    def remove_file(path):
+        os.remove(path)
+
