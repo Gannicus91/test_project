@@ -19,56 +19,53 @@ class Command(BaseCommand):
     @staticmethod
     def get_data(url):
         """загрузка и обработка данных"""
-        try:
-            response = requests.get(url, stream=True)
-            total_size = int(response.headers.get('content-length', 0))
-            block_size = 1048576 # считываем по 1мб
-            r"""
-            регулярное выражение задает следующий шаблон            
-            (ip) (?:) (?:) [(дата и время) (часовой пояс)] "(HTTP method) \(?:) (?:)\" 
-            (статус ответа) (размер ответа) "(источник)" (?:) "(?:)"
-            ?: - игнорируемая группа
-            доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
-            """
-            obj_list = []
-            wrote = 0
-            cut = ['', '']
-            for data in tqdm(response.iter_content(chunk_size=block_size),
-                             total=math.ceil(total_size // block_size),
-                             unit='KB', unit_scale=True, desc="Downloading & processing the data"):
-                data = data.decode('utf-8').split('\n')
-                cut[1] = data.pop()
-                if re.fullmatch(Command.pattern, cut[0]):
-                    Command.process([cut[0]], obj_list)
-                else:
-                    Command.process([cut[0] + data.pop(0)], obj_list)
-                Command.process(data, obj_list)
-                cut[0] = cut[1]
-                wrote += len(data)
+        response = requests.get(url, stream=True)
+        total_size = int(response.headers.get('content-length', 0))
+        block_size = 1048576 # считываем по 1мб
+        r"""
+        регулярное выражение задает следующий шаблон            
+        (ip) (?:) (?:) [(дата и время) (часовой пояс)] "(HTTP method) \(?:) (?:)\" 
+        (статус ответа) (размер ответа) "(источник)" (?:) "(?:)"
+        ?: - игнорируемая группа
+        доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
+        """
+        obj_list = []
+        wrote = 0
+        cut = ['', '']
+        for data in tqdm(response.iter_content(chunk_size=block_size),
+                         total=math.ceil(total_size // block_size),
+                         unit='KB', unit_scale=True, desc="Downloading & processing the data"):
+            data = data.decode('utf-8').split('\n')
+            cut[1] = data.pop()
+            stuck = cut[0] + data.pop(0)
+            if re.fullmatch(Command.pattern, cut[0]):
+                obj_list.append(Command.get_log_object(cut[0]))
+            else:
+                if re.fullmatch(Command.pattern, stuck):
+                    obj_list.append(Command.get_log_object(stuck))
+            Command.process(data, obj_list)
+            cut[0] = cut[1]
+            wrote += len(data)
             Command.save_data(obj_list)
-            if total_size != 0 and wrote != total_size:
-                return 0
-            return 1
-        except Exception as e:
-            print(e)
+            obj_list = []
+        if total_size != 0 and wrote != total_size:
             return 0
+        return 1
 
     @staticmethod
     def process(data, obj_list):
         for log in data:
-            match = re.search(Command.pattern, log)  # получили match-объект с интересующими группами
-
-            if match is None:
-                print(log)
+            log_obj = Command.get_log_object(log)
+            if log_obj is None:
                 continue
-
-            obj_list.append(Command.get_log_object_from_match(match))
-            if len(obj_list) == 999:  # sqlite позволяет сохранить максимум 999 объктов за раз
-                Command.save_data(obj_list)
-                obj_list = []
+            else:
+                obj_list.append(log_obj)
 
     @staticmethod
-    def get_log_object_from_match(match):
+    def get_log_object(log):
+        match = re.search(Command.pattern, log)  # получили match-объект с интересующими группами
+        if match is None:
+            return None
         ip = match[1]
         date_time = datetime.strptime(match[2], "%d/%b/%Y:%H:%M:%S")
         tz = int(match[3][:3])
