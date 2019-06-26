@@ -48,8 +48,7 @@ class Command(BaseCommand):
                 Command.save_data(obj_list)
                 obj_list = []
             if total_size != 0 and wrote != total_size:
-                print("Something went wrong")
-                return False
+                raise Exception("Something went wrong")
             return True
         except Exception as e:
             print(e)
