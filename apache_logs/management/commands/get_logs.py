@@ -29,16 +29,16 @@ class Command(BaseCommand):
             доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
             """
             obj_list = []
-            cut = ['', ''] # первый элемент - часть строки считанная в прошлой итерации, второй - в этой
+            cut = ['', ''] # первый элемент - часть строки считанная в прошлой итерации, второй - в текущей
             for data in tqdm(response.iter_content(chunk_size=block_size),
                              total=math.ceil(total_size // block_size),
                              unit='KB', unit_scale=True, desc="Downloading & processing the data"):
                 data = data.decode('utf-8').split('\n')
                 cut[1] = data.pop() # запоминаем обрезанную строку для следующей итерации
-                stuck = cut[0] + data.pop(0) # склеиваем обрезанные части строк
-                if re.fullmatch(Command.pattern, cut[0]):
+                if re.fullmatch(Command.pattern, cut[0]): # если последняя строка считалась полностью, обрабатываем
                     obj_list.append(Command.get_log_object(cut[0]))
                 else:
+                    stuck = cut[0] + data.pop(0) # склеиваем обрезанные части строк
                     if stuck:
                         obj_list.append(Command.get_log_object(stuck))
                 Command.process(data, obj_list)
@@ -55,9 +55,9 @@ class Command(BaseCommand):
         for log in data:
             log_obj = Command.get_log_object(log)
             if log_obj:
-                continue
-            else:
                 obj_list.append(log_obj)
+            else:
+                continue
 
     @staticmethod
     def get_log_object(log):
