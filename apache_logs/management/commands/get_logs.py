@@ -29,7 +29,6 @@ class Command(BaseCommand):
             доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
             """
             obj_list = []
-            wrote = 0
             cut = ['', ''] # первый элемент - часть строки считанная в прошлой итерации, второй - в этой
             for data in tqdm(response.iter_content(chunk_size=block_size),
                              total=math.ceil(total_size // block_size),
@@ -43,12 +42,9 @@ class Command(BaseCommand):
                     if stuck:
                         obj_list.append(Command.get_log_object(stuck))
                 Command.process(data, obj_list)
-                cut[0] = cut[1] # обновляем cut для след. итерации
-                wrote += len(data)
                 Command.save_data(obj_list)
+                cut[0] = cut[1] # обновляем cut для след. итерации
                 obj_list = []
-            if total_size != 0 and wrote != total_size:
-                raise Exception("Something went wrong")
             return True
         except Exception as e:
             print(e)
