@@ -5,52 +5,54 @@ from tqdm import tqdm
 import math
 from datetime import *
 from apache_logs.models import ApacheLog
-import os
 import warnings
 import time as tm
 
 
 class Command(BaseCommand):
-    help = ''
-    path = 'logs.bin'
+    help = 'собирает логи по указанному URL'
     pattern = r'(\S+) (?:\S+) (?:\S+) \[((?:[^:]+):(?:\d+:\d+:\d+)) ([^\]]+)\] \"(\S+) (?:.*?) (?:\S+)\"' \
               r' (\S+) (\S+) \"(.*?)\" \"(?:.*?)\" \"(?:.*?)\"'
 
     @staticmethod
     def get_data(url):
-        """загрузка и обработка данных"""
-        response = requests.get(url, stream=True)
-        total_size = int(response.headers.get('content-length', 0))
-        block_size = 1048576 # считываем по 1мб
-        r"""
-        регулярное выражение задает следующий шаблон            
-        (ip) (?:) (?:) [(дата и время) (часовой пояс)] "(HTTP method) \(?:) (?:)\" 
-        (статус ответа) (размер ответа) "(источник)" (?:) "(?:)"
-        ?: - игнорируемая группа
-        доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
-        """
-        obj_list = []
-        wrote = 0
-        cut = ['', '']
-        for data in tqdm(response.iter_content(chunk_size=block_size),
-                         total=math.ceil(total_size // block_size),
-                         unit='KB', unit_scale=True, desc="Downloading & processing the data"):
-            data = data.decode('utf-8').split('\n')
-            cut[1] = data.pop()
-            stuck = cut[0] + data.pop(0)
-            if re.fullmatch(Command.pattern, cut[0]):
-                obj_list.append(Command.get_log_object(cut[0]))
-            else:
-                if re.fullmatch(Command.pattern, stuck):
-                    obj_list.append(Command.get_log_object(stuck))
-            Command.process(data, obj_list)
-            cut[0] = cut[1]
-            wrote += len(data)
-            Command.save_data(obj_list)
+        try:
+            """загрузка и обработка данных"""
+            response = requests.get(url, stream=True)
+            total_size = int(response.headers.get('content-length', 0))
+            block_size = 1048576 # считываем по 1мб
+            r"""
+            регулярное выражение задает следующий шаблон            
+            (ip) (?:) (?:) [(дата и время) (часовой пояс)] "(HTTP method) \(?:) (?:)\" 
+            (статус ответа) (размер ответа) "(источник)" (?:) "(?:)"
+            ?: - игнорируемая группа
+            доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
+            """
             obj_list = []
-        if total_size != 0 and wrote != total_size:
+            wrote = 0
+            cut = ['', '']
+            for data in tqdm(response.iter_content(chunk_size=block_size),
+                             total=math.ceil(total_size // block_size),
+                             unit='KB', unit_scale=True, desc="Downloading & processing the data"):
+                data = data.decode('utf-8').split('\n')
+                cut[1] = data.pop()
+                stuck = cut[0] + data.pop(0)
+                if re.fullmatch(Command.pattern, cut[0]):
+                    obj_list.append(Command.get_log_object(cut[0]))
+                else:
+                    if re.fullmatch(Command.pattern, stuck):
+                        obj_list.append(Command.get_log_object(stuck))
+                Command.process(data, obj_list)
+                cut[0] = cut[1]
+                wrote += len(data)
+                Command.save_data(obj_list)
+                obj_list = []
+            if total_size != 0 and wrote != total_size:
+                return 0
+            return 1
+        except Exception as e:
+            print(e)
             return 0
-        return 1
 
     @staticmethod
     def process(data, obj_list):
@@ -102,12 +104,3 @@ class Command(BaseCommand):
         with warnings.catch_warnings():  # игнорируем предупреждения о таймзонах
             warnings.simplefilter("ignore")
             ApacheLog.objects.bulk_create(obj_list)
-
-    @staticmethod
-    def create_file(path):
-        f = open(path, 'w')
-        f.close()
-
-    @staticmethod
-    def remove_file(path):
-        os.remove(path)
