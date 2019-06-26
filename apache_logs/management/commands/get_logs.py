@@ -7,11 +7,14 @@ from datetime import *
 from apache_logs.models import ApacheLog
 import os
 import warnings
+import time as tm
 
 
 class Command(BaseCommand):
     help = ''
     path = 'logs.bin'
+    pattern = r'(\S+) (?:\S+) (?:\S+) \[((?:[^:]+):(?:\d+:\d+:\d+)) ([^\]]+)\] \"(\S+) (?:.*?) (?:\S+)\"' \
+              r' (\S+) (\S+) \"(.*?)\" \"(?:.*?)\" \"(?:.*?)\"'
 
     @staticmethod
     def get_data(url):
@@ -27,41 +30,42 @@ class Command(BaseCommand):
             ?: - игнорируемая группа
             доступ к необходимой группе осуществляется через match[номер группы]. Группы нумеруются с 1
             """
-            reg = r'(\S+) (?:\S+) (?:\S+) \[((?:[^:]+):(?:\d+:\d+:\d+)) ([^\]]+)\] \"(\S+) (?:.*?) (?:\S+)\"' \
-                  r' (\S+) (\S+) \"(.*?)\" \"(?:.*?)\" \"(?:.*?)\"'
             obj_list = []
-            cut = b''
-            with open(Command.path, 'r+b') as file:
-                for data in tqdm(response.iter_content(chunk_size=block_size),
-                                 total=math.ceil(total_size // block_size),
-                                 unit='KB', unit_scale=True, desc="Downloading & processing the data"):
-                    file.write(data)
-                    file.seek(-len(data), 1) # перемещаем указатель внутри файла назад и обрабатываем считанные данные
-                    for log in file.readlines():
-                        if log[-1] != 10: # если последний символ строки не равен \n значит строка считана не полностью
-                            cut = log # запомнили обрезанную часть строки
-                            break
-                        cut += log # присоединили к обрезанной строке оставшийся кусок (или просто считанную строку)
-                        log = cut
-                        match = re.search(reg, log.decode('utf-8'))  # получили match-объект с интересующими группами
-
-                        if match is None:
-                            continue
-
-                        obj_list.append(Command.get_log_object_from_match(match))
-                        if len(obj_list) == 999:  # sqlite позволяет сохранить максимум 999 объктов за раз
-                            Command.save_data(obj_list)
-                            obj_list = []
-                        cut = b''
-
-                Command.save_data(obj_list)
-                wrote = file.tell()
+            wrote = 0
+            cut = ['', '']
+            for data in tqdm(response.iter_content(chunk_size=block_size),
+                             total=math.ceil(total_size // block_size),
+                             unit='KB', unit_scale=True, desc="Downloading & processing the data"):
+                data = data.decode('utf-8').split('\n')
+                cut[1] = data.pop()
+                if re.fullmatch(Command.pattern, cut[0]):
+                    Command.process([cut[0]], obj_list)
+                else:
+                    Command.process([cut[0] + data.pop(0)], obj_list)
+                Command.process(data, obj_list)
+                cut[0] = cut[1]
+                wrote += len(data)
+            Command.save_data(obj_list)
             if total_size != 0 and wrote != total_size:
                 return 0
             return 1
         except Exception as e:
             print(e)
             return 0
+
+    @staticmethod
+    def process(data, obj_list):
+        for log in data:
+            match = re.search(Command.pattern, log)  # получили match-объект с интересующими группами
+
+            if match is None:
+                print(log)
+                continue
+
+            obj_list.append(Command.get_log_object_from_match(match))
+            if len(obj_list) == 999:  # sqlite позволяет сохранить максимум 999 объктов за раз
+                Command.save_data(obj_list)
+                obj_list = []
 
     @staticmethod
     def get_log_object_from_match(match):
@@ -82,9 +86,10 @@ class Command(BaseCommand):
                          referer=referer, status=status, resp_size=resp_size)
 
     def handle(self, *args, **options):
-        Command.create_file(Command.path)
+        Command.start = tm.time()
         Command.get_data(options['url'])
-        Command.remove_file(Command.path)
+        Command.end = tm.time()
+        print(Command.end - Command.start)
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -109,4 +114,3 @@ class Command(BaseCommand):
     @staticmethod
     def remove_file(path):
         os.remove(path)
-
