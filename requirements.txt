@@ -1,6 +1,6 @@
 Django==2.2.2
 openpyxl==2.6.2
 pytz==2019.1
-requests==2.22.0
+requests==2.31.0
 sqlparse==0.3.0
 tqdm==4.32.2
